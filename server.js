@@ -1,13 +1,9 @@
 const express = require('express');
 const app = express();
 
-// Base de datos simple
 let jobs = [];
 
-// Configuración
 app.use(express.json());
-
-// Permitir acceso desde Roblox
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', '*');
@@ -18,44 +14,56 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.send(`
         <html>
-        <style>body{font-family:Arial;padding:20px;background:#0f0c29;color:white;}</style>
+        <style>
+            body{font-family:Arial;padding:20px;background:#0f0c29;color:white;}
+            .job{background:#2a2a3e;padding:15px;margin:10px;border-radius:8px;}
+        </style>
         <h1>🧠 Brainrot API</h1>
-        <p>✅ API funcionando</p>
         <p>📊 Jobs: ${jobs.length}</p>
-        <p>🔗 Para Roblox: <code>/api/jobs</code></p>
+        ${jobs.slice().reverse().slice(0,5).map(job => `
+            <div class="job">
+                <strong>${job.name}</strong><br>
+                💰 ${job.money} | 👥 ${job.players}<br>
+                ID: ${job.id.substring(0,20)}...
+            </div>
+        `).join('')}
         </html>
     `);
 });
 
-// Obtener jobs (para Roblox)
+// Obtener jobs
 app.get('/api/jobs', (req, res) => {
-    res.json({
-        success: true,
-        jobs: jobs,
-        count: jobs.length
-    });
+    res.json({ success: true, jobs: jobs });
 });
 
-// Agregar job (para bot Discord)
+// Agregar job (formato específico)
 app.post('/api/jobs', (req, res) => {
-    const { id, name, mps } = req.body;
+    const { name, money, players, jobId } = req.body;
     
-    if (!id) return res.json({ error: 'Falta ID' });
+    if (!jobId) return res.json({ error: 'Falta Job ID' });
     
-    jobs.push({
-        id: id,
-        name: name || 'Unknown',
-        mps: mps || 0,
-        timestamp: new Date()
-    });
+    // Evitar duplicados
+    const isDuplicate = jobs.some(j => j.id === jobId);
     
-    // Mantener últimos 50
-    if (jobs.length > 50) jobs = jobs.slice(-50);
-    
-    res.json({ success: true });
+    if (!isDuplicate) {
+        jobs.unshift({
+            id: jobId,
+            name: name || 'Unknown',
+            money: money || '0M/s',
+            players: players || '0/0',
+            timestamp: new Date().toISOString()
+        });
+        
+        // Mantener últimos 50
+        if (jobs.length > 50) jobs = jobs.slice(0, 50);
+        
+        console.log(`✅ Job: ${name} | ${money} | ${players}`);
+        res.json({ success: true });
+    } else {
+        res.json({ success: true, message: 'Duplicado' });
+    }
 });
 
-// Puerto (Render asigna automático)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 API en puerto ${PORT}`);
